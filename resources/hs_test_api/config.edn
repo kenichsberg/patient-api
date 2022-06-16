@@ -1,0 +1,42 @@
+{:duct.profile/base
+ {:duct.core/project-ns hs-test-api
+
+  :duct.router/ataraxy
+  {:routes
+   {[:get "/patients"]
+    [:hs-test-api.handler.patients/list-patients]
+
+    [:post "/patients" {patient :body-params}]
+    [:hs-test-api.handler.patients/create-patient patient]
+
+    [:get "/patients/" patient-id]
+    [:hs-test-api.handler.patients/fetch-patient patient-id]
+
+    [:put "/patients/" patient-id {patient :body-params}]
+    [:hs-test-api.handler.patients/update-patient patient-id patient]
+
+    [:delete "/patients/" patient-id]
+    [:hs-test-api.handler.patients/delete-patient patient-id]}}
+
+  :hs-test-api.handler.patients/list-patients   {:db #ig/ref :duct.database/sql}
+  :hs-test-api.handler.patients/create-patient  {:db #ig/ref :duct.database/sql}
+  :hs-test-api.handler.patients/fetch-patient   {:db #ig/ref :duct.database/sql}
+  :hs-test-api.handler.patients/update-patient  {:db #ig/ref :duct.database/sql}
+  :hs-test-api.handler.patients/delete-patient  {:db #ig/ref :duct.database/sql}
+
+  :duct.migrator/ragtime
+  {:migrations [#ig/ref :hs-test-api.migration/create-patients-table]}
+
+  [:duct.migrator.ragtime/sql :hs-test-api.migration/create-patients-table]
+  {:up   [#duct/resource "migrations/0001-create-patients-table.up.sql"]
+   :down [#duct/resource "migrations/0001-create-patients-table.down.sql"]}}
+
+ :duct.profile/dev   #duct/include "dev"
+ :duct.profile/local #duct/include "local"
+ :duct.profile/prod  {}
+
+ :duct.module/logging {}
+ :duct.module.web/api
+ {}
+ :duct.module/sql
+ {}}
