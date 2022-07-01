@@ -7,9 +7,7 @@
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where insert-into values update set delete-from] :as h]
             [clojure.core :as c]
-            [clojure.string :as cstr]
-            [java-time :as jt])
-  (:import java.util.Date))
+            [clojure.string :as cstr]))
 
 (s/def ::id nat-int?)
 (s/def ::first_name string?)
@@ -69,8 +67,6 @@
   {:return-keys true
    :builder-fn rs/as-unqualified-lower-maps})
 
-;(defn cast-date-fields [m ks]
-;  (update-in m ks jt/zoned-date-time))
 (defn cast-date-field [m k]
   (c/update m k #(vector :to_date % "YYYY-MM-DD")))
 
@@ -85,7 +81,6 @@
                                [:concat :first_name " " :last_name :health_insurance_number]]
                               (str "%" %2 "%")])
                    [:or])))))
-(comment (keywords->where-clause "a b"))
 
 (extend-protocol Patient
   duct.database.sql.Boundary
