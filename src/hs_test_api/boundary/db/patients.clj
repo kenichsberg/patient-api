@@ -7,6 +7,7 @@
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where insert-into values update set delete-from] :as h]
             [clojure.core :as c]
+            [clojure.string :as cstr]
             [java-time :as jt])
   (:import java.util.Date))
 
@@ -29,7 +30,8 @@
 (s/def ::row-count nat-int?)
 
 (s/fdef find-patients
-  :arg (s/cat :db any?)
+  :arg (s/cat :db any?
+              :keywords string?)
   :ret (s/coll-of ::patient))
 
 (s/fdef find-patient-by-id
@@ -54,7 +56,7 @@
   :ret ::row-count)
 
 (defprotocol Patient
-  (find-patients [db])
+  (find-patients [db keywords])
   (find-patient-by-id [db id])
   (create-patient! [db patient])
   (update-patient! [db id patient])
@@ -72,12 +74,26 @@
 (defn cast-date-field [m k]
   (c/update m k #(vector :to_date % "YYYY-MM-DD")))
 
+(defn keywords->where-clause [keyword-string]
+  (if (empty? keyword-string)
+    true
+    (let [keyword-vec (cstr/split keyword-string #" ")]
+      (->> keyword-vec
+           (map cstr/lower-case)
+           (reduce #(conj %1 [:like
+                              [:lower
+                               [:concat :first_name " " :last_name :health_insurance_number]]
+                              (str "%" %2 "%")])
+                   [:or])))))
+(comment (keywords->where-clause "a b"))
+
 (extend-protocol Patient
   duct.database.sql.Boundary
-  (find-patients [db]
+  (find-patients [db keywords]
     (jdbc/execute! (get-datasource db)
                    (-> (select :*)
                        (from :patients)
+                       (where (keywords->where-clause keywords))
                        (sql/format))
                    jdbc-opts))
 
@@ -114,13 +130,3 @@
                            (where  [:= :id [:cast id :integer]])
                            (sql/format))
                        jdbc-opts)))
-
-(comment
-  (def id 1)
-  (def patient {::id 1
-                ::health_insurance_number 123456789012
-                ::first_name "bob"
-                ::last_name "sponge"
-                ::gender true
-                ::birth "1999-09-09"
-                ::address "222 abc st."}))
