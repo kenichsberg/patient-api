@@ -8,6 +8,7 @@
                  [duct/module.logging "0.5.0"]
                  [duct/module.sql "0.6.1"]
                  [duct/module.web "0.7.3"]
+                 [ring-cors "0.1.13"]
                  [clojure.java-time "0.3.3"]
                  [org.postgresql/postgresql "42.2.19"]
                  [com.github.seancorfield/honeysql "2.2.891"]

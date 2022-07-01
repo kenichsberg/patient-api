@@ -24,6 +24,13 @@
   :hs-test-api.handler.patients/update-patient  {:db #ig/ref :duct.database/sql}
   :hs-test-api.handler.patients/delete-patient  {:db #ig/ref :duct.database/sql}
 
+  :hs-test-api.middleware/wrap-cors
+  {:access-control-allow-origin [#hs-test-api/regex "http://localhost:8080"]
+   :access-control-allow-methods [:get :put :post :delete]}
+
+  :duct.handler/root
+  {:middleware [#ig/ref :hs-test-api.middleware/wrap-cors]}
+
   :duct.migrator/ragtime
   {:migrations [#ig/ref :hs-test-api.migration/create-patients-table]}
 
