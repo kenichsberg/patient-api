@@ -5,27 +5,29 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
-            [honey.sql.helpers :refer :all :as h]
+            [honey.sql.helpers :refer [select from where insert-into values update set delete-from] :as h]
             [clojure.core :as c]
             [java-time :as jt])
   (:import java.util.Date))
 
-(s/def ::health_insurance_number string?)
+(s/def ::id nat-int?)
 (s/def ::first_name string?)
 (s/def ::middle_name string?)
 (s/def ::last_name string?)
 (s/def ::gender boolean?)
 (s/def ::birth string?)
 (s/def ::address string?)
+(s/def ::health_insurance_number string?)
 
 (s/def ::patient
-  (s/keys :req-un [::health_insurance_number
+  (s/keys :req-un [::id
                    ::first_name
                    ::middle_name
                    ::last_name
                    ::gender
                    ::birth
-                   ::address]))
+                   ::address
+                   ::health_insurance_number]))
 (s/def ::row-count nat-int?)
 
 (s/fdef find-patients
@@ -67,9 +69,9 @@
   {:return-keys true
    :builder-fn rs/as-unqualified-lower-maps})
 
-;(defn inst-date-fields [m ks]
+;(defn cast-date-fields [m ks]
 ;  (update-in m ks jt/zoned-date-time))
-(defn inst-date-field [m k]
+(defn cast-date-field [m k]
   (c/update m k #(vector :to_date % "YYYY-MM-DD")))
 
 (extend-protocol Patient
@@ -85,7 +87,7 @@
     (jdbc/execute-one! (get-datasource db)
                        (-> (select :*)
                            (from :patients)
-                           (where [:= :health_insurance_number id])
+                           (where [:= :id [:cast id :integer]])
                            (sql/format))
                        jdbc-opts))
 
@@ -93,31 +95,32 @@
     (-> (get-datasource db)
         (jdbc/execute-one!
          (-> (insert-into :patients)
-             (values [(inst-date-field patient :birth)])
+             (values [(cast-date-field patient :birth)])
              (sql/format {:pretty true}))
          jdbc-opts)
-        :health_insurance_number))
+        :id))
 
   (update-patient! [db id patient]
     (jdbc/execute-one! (get-datasource db)
                        (-> (update :patients)
                            (set (-> patient
-                                    (dissoc :health_insurance_number)
-                                    (inst-date-field  :birth)))
-                           (where [:= :health_insurance_number id])
+                                    (dissoc :id)
+                                    (cast-date-field  :birth)))
+                           (where [:= :id [:cast id :integer]])
                            (sql/format {:pretty true}))
                        jdbc-opts))
 
   (delete-patient! [db id]
     (jdbc/execute-one! (get-datasource db)
                        (-> (delete-from :patients)
-                           (where  [:= :health_insurance_number id])
+                           (where  [:= :id [:cast id :integer]])
                            (sql/format))
                        jdbc-opts)))
 
 (comment
   (def id 1)
-  (def patient {::health_insurance_number 1
+  (def patient {::id 1
+                ::health_insurance_number 123456789012
                 ::first_name "bob"
                 ::middle_name ""
                 ::last_name "sponge"
