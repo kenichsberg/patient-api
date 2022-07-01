@@ -12,7 +12,6 @@
 
 (s/def ::id nat-int?)
 (s/def ::first_name string?)
-(s/def ::middle_name string?)
 (s/def ::last_name string?)
 (s/def ::gender boolean?)
 (s/def ::birth string?)
@@ -22,7 +21,6 @@
 (s/def ::patient
   (s/keys :req-un [::id
                    ::first_name
-                   ::middle_name
                    ::last_name
                    ::gender
                    ::birth
@@ -122,7 +120,6 @@
   (def patient {::id 1
                 ::health_insurance_number 123456789012
                 ::first_name "bob"
-                ::middle_name ""
                 ::last_name "sponge"
                 ::gender true
                 ::birth "1999-09-09"
