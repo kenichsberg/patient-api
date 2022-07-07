@@ -4,9 +4,23 @@
             [integrant.core :as ig]
             [hs-test-api.boundary.db.patients :as db.patients]))
 
+(defn params->vec [params]
+  (loop [cnt 0
+         acc []]
+    (let [field (get params (keyword (str "f-" cnt)))
+          operator (get params (keyword (str "o-" cnt)))
+          value (get params (keyword (str "v-" cnt)))]
+      (if (nil? field)
+        acc
+        (recur (inc cnt) (conj acc
+                               {:field field
+                                :operator operator
+                                :value value}))))))
+
 (defmethod ig/init-key ::list-patients [_ {:keys [db]}]
-  (fn [{{:keys [keywords]} :params}]
-    [::response/ok (db.patients/find-patients db keywords)]))
+  (fn [{{:keys [keywords] :as params} :params}]
+    (let [filter-vec (params->vec params)]
+      [::response/ok (db.patients/find-patients db keywords filter-vec)])))
 
 (defmethod ig/init-key ::create-patient [_ {:keys [db]}]
   (fn [{[_ patient] :ataraxy/result}]
