@@ -15,25 +15,30 @@
                                                          keyword)
                         :else (keyword k))
                     v (if (not (vector? v))
-                        v
+                        (if (not (str/includes? v ","))
+                          (URLDecoder/decode v)
+                          (->> (str/split v #",")
+                               (mapv #(URLDecoder/decode %))
+                               vector))
                         (mapv (fn [v]
-                                (let [v (URLDecoder/decode v)]
-                                  (if (not (str/includes? v ","))
-                                    (URLDecoder/decode v)
-                                    (->> (str/split v #",")
-                                         (mapv #(URLDecoder/decode %))))))
+                                (if (not (str/includes? v ","))
+                                  (URLDecoder/decode v)
+                                  (->> (str/split v #",")
+                                       (mapv #(URLDecoder/decode %)))))
                               v))]
                 [k v])))
        (reduce #(merge %1 (apply hash-map %2)) {})))
 
 (comment
   (format-params {:keywords "el"
-                  "filters[]" ["gender,eq,true"
-                               "address,gt,n.y."]}))
+                  "filters[]" nil}))
 
 (defmethod ig/init-key ::list-patients [_ {:keys [db]}]
   (fn [{:keys [params]}]
+    (println params)
     (let [{:keys [keywords filters]} (format-params params)]
+      (println keywords)
+      (println filters)
       [::response/ok (db.patients/find-patients db keywords filters)])))
 
 (defmethod ig/init-key ::create-patient [_ {:keys [db]}]

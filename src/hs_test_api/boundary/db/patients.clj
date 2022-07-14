@@ -94,14 +94,6 @@
                               (str "%" %2 "%")])
                    [:or])))))
 
-;(defmacro compare-date-statement [field operator value]
-;  `[~@(case operator
-;        "eq" :=
-;        "gt" :>
-;        "lt" :<)
-;    ~field
-;    [:to_date ~value "YYYY-MM-DD"]])
-
 (defn compare-date [field-kw operator value]
   [(case operator
      "eq" :=
@@ -116,23 +108,11 @@
      "gt" :like)
    [:lower field-kw]
    [:lower (case operator
-            "eq" value
-            "gt" (str "%" value "%")
-            )]])
+             "eq" value
+             "gt" (str "%" value "%"))]])
 
-;(defn validate-filter-cond [cond-vec]
-;  (or (some? (some (-> cond-vec (get 0) list c/set)
-;                   ["first_name"
-;                    "last_name"
-;                    "gender"
-;                    "address"
-;                    "health_insurance_number"]))
-;      (and (= (get cond-vec 0) "birth")
-;           (some? (some (-> cond-vec (get 1) list c/set)
-;                        ["eq" "gt" "lt"]))
-;           ;@TODO check valid date str or not
-;           )))
 (defn validate-filter-cond [[field operator value]]
+  (println [field operator value])
   (and
    ;; field
    (some? (some (-> field list c/set)
@@ -183,12 +163,11 @@
 
 (comment
   (compare-date :birth "gt" "1900-01-01")
+  (validate-filter-cond ["address" "gt" "k,"])
   (-> (apply select output-columns)
       (from :patients)
       (where (keywordstr->whereclause nil))
-      (where (filters->whereclause [["gender" "eq" "false"]
-                                    ["birth" "gt" "1900-01-01"]
-                                    ["address" "gt" "NY"]]))
+      (where (filters->whereclause [["address" "gt" "k,"]]))
       (sql/format)))
 
 (extend-protocol Patient
