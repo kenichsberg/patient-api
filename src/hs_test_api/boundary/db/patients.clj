@@ -110,38 +110,67 @@
    field-kw
    [:to_date value "YYYY-MM-DD"]])
 
-(defn validate-cond-map [cond-map]
-  (or (some? (some (-> cond-map :field list c/set)
-                   ["first_name"
-                    "last_name"
-                    "gender"
-                    "address"
-                    "health_insurance_number"]))
-      (and (= (cond-map :field) "birth")
-           (some? (some (-> cond-map :operator list c/set)
-                        ["eq" "gt" "lt"]))
-           ;@TODO check valid date str or not
-           )))
+(defn compare-text [field-kw operator value]
+  [(case operator
+     "eq" :=
+     "gt" :like)
+   [:lower field-kw]
+   [:lower (case operator
+            "eq" value
+            "gt" (str "%" value "%")
+            )]])
 
-(defn filtervec->whereclause [filter-vec]
-  (if (empty? filter-vec)
+;(defn validate-filter-cond [cond-vec]
+;  (or (some? (some (-> cond-vec (get 0) list c/set)
+;                   ["first_name"
+;                    "last_name"
+;                    "gender"
+;                    "address"
+;                    "health_insurance_number"]))
+;      (and (= (get cond-vec 0) "birth")
+;           (some? (some (-> cond-vec (get 1) list c/set)
+;                        ["eq" "gt" "lt"]))
+;           ;@TODO check valid date str or not
+;           )))
+(defn validate-filter-cond [[field operator value]]
+  (and
+   ;; field
+   (some? (some (-> field list c/set)
+                ["first_name"
+                 "last_name"
+                 "gender"
+                 "birth"
+                 "address"
+                 "health_insurance_number"]))
+   ;; operator
+   (cond
+     (= field "birth") (some? (some (-> operator list c/set)
+                                    ["eq" "gt" "lt"]))
+     (= field "gender") (some? (some (-> operator list c/set)
+                                     ["eq"]))
+     :else (some? (some (-> operator list c/set)
+                        ["eq" "gt"])))
+   ;; value
+   (cond
+     ;@TODO check valid date str or not
+     (= field "birth") true
+     (= field "gender") (boolean? (read-string value))
+     :else (string? value))))
+
+(defn filters->whereclause [filters]
+  (if (empty? filters)
     [:= true true]
-    (reduce #(if (validate-cond-map %2)
-               (let [{:keys [field operator value]} %2
-                     field-kw (keyword field)
-                     acc %1]
-                 (conj acc
+    (reduce #(if (validate-filter-cond %2)
+               (let [[field operator value] %2
+                     field-kw (keyword field)]
+                 (conj %1
                        (cond
-                         (= field-kw :gender) [:= field-kw value]
-                         (= field-kw :birth) (compare-date
-                                              field-kw
-                                              operator
-                                              value)
-                         :else [:= [:lower field-kw]
-                                [:lower value]])))
+                         (= field-kw :gender) [:= field-kw (read-string value)]
+                         (= field-kw :birth) (compare-date field-kw operator value)
+                         :else (compare-text field-kw operator value))))
                %1)
             [:and]
-            filter-vec)))
+            filters)))
 
 (def output-columns
   [:id
@@ -153,45 +182,28 @@
    :health_insurance_number])
 
 (comment
-  (def keyword-str "e")
-  (def filter-vec [{:field "gender" :value false}
-                   ;{:field "birth" :operator "gt" :value "1900-01-01"}])
-                   {:field "last_name" :value "blockwell"}])
-  (validate-cond-map {:field "last_name" :value "blockwell"})
-  (some? (some #{"gender"}
-               ["first_name"
-                "last_name"
-                "gender"
-                "address"
-                "health_insurance_number"]))
-  (= (-> {:field "last_name" :value "blockwell"}
-         :field
-         (vector)
-         (c/set))
-     #{"last_name"})
-  (-> {:field "last_name" :value "blockwell"} :field vector set)
-  (-> (select :*)
-      (from :patients)
-      (where [:or [:= :c "c"] [:= :a "a"]])
-      ;(where [:= :b "b"] [:= :d "d"])
-      ;(apply where [[:= :b "b"] [:= :d "d"]])
-      (where [:and [:= :b "b"] [:= :d "d"]])
-      (sql/format))
+  (compare-date :birth "gt" "1900-01-01")
   (-> (apply select output-columns)
       (from :patients)
       (where (keywordstr->whereclause nil))
-      (where (filtervec->whereclause [{:field "gender" :value false}
-                                      {:field "last_name" :value "blockwell"}]))
+      (where (filters->whereclause [["gender" "eq" "false"]
+                                    ["birth" "gt" "1900-01-01"]
+                                    ["address" "gt" "NY"]]))
       (sql/format)))
 
 (extend-protocol Patient
   duct.database.sql.Boundary
-  (find-patients [db keyword-str filter-vec]
+  (find-patients [db keyword-str filters]
+    (println (-> (apply select output-columns)
+                 (from :patients)
+                 (where (keywordstr->whereclause keyword-str))
+                 (where (filters->whereclause filters))
+                 (sql/format)))
     (jdbc/execute! (get-datasource db)
                    (-> (apply select output-columns)
                        (from :patients)
                        (where (keywordstr->whereclause keyword-str))
-                       (where (filtervec->whereclause filter-vec))
+                       (where (filters->whereclause filters))
                        (sql/format))
                    jdbc-opts))
 

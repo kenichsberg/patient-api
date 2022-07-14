@@ -1,26 +1,40 @@
 (ns hs-test-api.handler.patients
-  (:require [ataraxy.core :as ataraxy]
+  (:require [clojure.string :as str]
+            [ataraxy.core :as ataraxy]
             [ataraxy.response :as response]
             [integrant.core :as ig]
-            [hs-test-api.boundary.db.patients :as db.patients]))
+            [hs-test-api.boundary.db.patients :as db.patients])
+  (:import [java.net URLDecoder]))
 
-(defn params->vec [params]
-  (loop [cnt 0
-         acc []]
-    (let [field (get params (keyword (str "f-" cnt)))
-          operator (get params (keyword (str "o-" cnt)))
-          value (get params (keyword (str "v-" cnt)))]
-      (if (nil? field)
-        acc
-        (recur (inc cnt) (conj acc
-                               {:field field
-                                :operator operator
-                                :value value}))))))
+(defn format-params [params]
+  (->> params
+       (map (fn [[k v]]
+              (let [k (cond
+                        (keyword? k) k
+                        (some? (re-find #"\[\]$" k)) (-> (str/replace k #"\[\]$" "")
+                                                         keyword)
+                        :else (keyword k))
+                    v (if (not (vector? v))
+                        v
+                        (mapv (fn [v]
+                                (let [v (URLDecoder/decode v)]
+                                  (if (not (str/includes? v ","))
+                                    (URLDecoder/decode v)
+                                    (->> (str/split v #",")
+                                         (mapv #(URLDecoder/decode %))))))
+                              v))]
+                [k v])))
+       (reduce #(merge %1 (apply hash-map %2)) {})))
+
+(comment
+  (format-params {:keywords "el"
+                  "filters[]" ["gender,eq,true"
+                               "address,gt,n.y."]}))
 
 (defmethod ig/init-key ::list-patients [_ {:keys [db]}]
-  (fn [{{:keys [keywords] :as params} :params}]
-    (let [filter-vec (params->vec params)]
-      [::response/ok (db.patients/find-patients db keywords filter-vec)])))
+  (fn [{:keys [params]}]
+    (let [{:keys [keywords filters]} (format-params params)]
+      [::response/ok (db.patients/find-patients db keywords filters)])))
 
 (defmethod ig/init-key ::create-patient [_ {:keys [db]}]
   (fn [{[_ patient] :ataraxy/result}]
