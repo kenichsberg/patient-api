@@ -7,30 +7,32 @@
   (:import [java.net URLDecoder]))
 
 (defn format-params [params]
-  (->> params
-       (map (fn [[k v]]
-              (let [k (cond
-                        (keyword? k) k
-                        (some? (re-find #"\[\]$" k)) (-> (str/replace k #"\[\]$" "")
-                                                         keyword)
-                        :else (keyword k))
-                    v (if (not (vector? v))
-                        (if (not (str/includes? v ","))
-                          (URLDecoder/decode v)
-                          (->> (str/split v #",")
-                               (mapv #(URLDecoder/decode %))
-                               vector))
-                        (mapv (fn [v]
-                                (if (not (str/includes? v ","))
-                                  (URLDecoder/decode v)
-                                  (->> (str/split v #",")
-                                       (mapv #(URLDecoder/decode %)))))
-                              v))]
-                [k v])))
-       (reduce #(merge %1 (apply hash-map %2)) {})))
+  (reduce-kv (fn [m k v]
+               (let [k (cond
+                         (keyword? k) k
+                         (re-find #"\[\]$" k) (-> (str/replace k #"\[\]$" "")
+                                                  keyword)
+                         :else (keyword k))
+                     parse-comma-separated (fn [s]
+                                             (cond
+                                               (not (string? s)) s
+                                               (re-find #"," s) (str/split s #",")
+                                               :else s))
+                     vec|str->f->v (fn [f vec|str]
+                                     (if (vector? vec|str)
+                                       (mapv f vec|str)
+                                       (f vec|str)))
+                     v (and v
+                            (vec|str->f->v
+                             (comp (partial vec|str->f->v #(URLDecoder/decode %))
+                                   parse-comma-separated)
+                             v))]
+                 (assoc m k v)))
+             {}
+             params))
 
 (comment
-  (format-params {:keywords "el"
+  (format-params {:keywords "foo"
                   "filters[]" nil}))
 
 (defmethod ig/init-key ::list-patients [_ {:keys [db]}]
