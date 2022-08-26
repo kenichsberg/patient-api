@@ -8,11 +8,11 @@
 
 (defn format-params [params]
   (reduce-kv (fn [m k v]
-               (let [k (cond
-                         (keyword? k) k
-                         (re-find #"\[\]$" k) (-> (str/replace k #"\[\]$" "")
-                                                  keyword)
-                         :else (keyword k))
+               (let [k* (cond
+                          (keyword? k) k
+                          (re-find #"\[\]$" k) (-> (str/replace k #"\[\]$" "")
+                                                   keyword)
+                          :else (keyword k))
                      parse-comma-separated (fn [s]
                                              (cond
                                                (not (string? s)) s
@@ -22,18 +22,24 @@
                                      (if (vector? vec|str)
                                        (mapv f vec|str)
                                        (f vec|str)))
-                     v (and v
-                            (vec|str->f->v
-                             (comp (partial vec|str->f->v #(URLDecoder/decode %))
-                                   parse-comma-separated)
-                             v))]
-                 (assoc m k v)))
+                     v* (and v
+                             (vec|str->f->v
+                              (comp (partial vec|str->f->v #(URLDecoder/decode %))
+                                    parse-comma-separated)
+                              v))
+                     v** (if (and (not (keyword? k))
+                                  (re-find #"\[\]$" k)
+                                  (some? v*)
+                                  (not (vector? (first v*))))
+                           (vector v*)
+                           v*)]
+                 (assoc m k* v**)))
              {}
              params))
 
 (comment
   (format-params {:keywords "foo"
-                  "filters[]" nil}))
+                  "filters[]" "first_name,gt,will"}))
 
 (defmethod ig/init-key ::list-patients [_ {:keys [db]}]
   (fn [{:keys [params] :as arg}]
