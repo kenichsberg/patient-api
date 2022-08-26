@@ -36,35 +36,49 @@
                   "filters[]" nil}))
 
 (defmethod ig/init-key ::list-patients [_ {:keys [db]}]
-  (fn [{:keys [params]}]
-    (println params)
+  (fn [{:keys [params] :as arg}]
     (let [{:keys [keywords filters]} (format-params params)]
-      (println keywords)
-      (println filters)
-      [::response/ok (db.patients/find-patients db keywords filters)])))
-
-(defmethod ig/init-key ::create-patient [_ {:keys [db]}]
-  (fn [{[_ patient] :ataraxy/result}]
-    (let [patient-id (db.patients/create-patient! db patient)]
-      [::response/created (str "/patients/" patient-id)
-       (db.patients/find-patient-by-id db patient-id)])))
+      (prn arg)
+      (prn keywords)
+      (prn filters)
+      (if-not (db.patients/validate-params :list-patients [keywords filters])
+        [::response/bad-request]
+        [::response/ok (db.patients/find-patients db keywords filters)]))))
 
 (defmethod ig/init-key ::fetch-patient [_ {:keys [db]}]
-  (fn [{[_ patient-id] :ataraxy/result}]
-    (if-let [patient (db.patients/find-patient-by-id db patient-id)]
-      [::response/ok patient]
-      [::response/not-found {:message "Not Found"}])))
+  (fn [{[_ patient-id] :ataraxy/result :as arg}]
+    (prn arg)
+    (if-not (db.patients/validate-params :fetch-patient [patient-id])
+      [::response/bad-request]
+      (if-let [patient (db.patients/find-patient-by-id db patient-id)]
+        [::response/ok patient]
+        [::response/not-found {:message "Not Found"}]))))
+
+(defmethod ig/init-key ::create-patient [_ {:keys [db]}]
+  (fn [{[_ patient] :ataraxy/result :as arg}]
+    (prn arg)
+    (if-not (db.patients/validate-params :create-patient [patient])
+      [::response/bad-request]
+      (let [patient-id (db.patients/create-patient! db patient)]
+        [::response/created
+         (str "/patients/" patient-id)
+         (db.patients/find-patient-by-id db patient-id)]))))
 
 (defmethod ig/init-key ::update-patient [_ {:keys [db]}]
   (fn [{[_ patient-id patient] :ataraxy/result}]
-    (if-not (db.patients/find-patient-by-id db patient-id)
-      [::response/not-found {:message "Not Found"}]
-      (do (db.patients/update-patient! db patient-id patient)
-          [::response/no-content]))))
+    (prn "patient-id" patient-id)
+    (if-not (db.patients/validate-params :update-patient [patient-id patient])
+      [::response/bad-request]
+      (if-not (db.patients/find-patient-by-id db patient-id)
+        [::response/not-found {:message "Not Found"}]
+        (do (db.patients/update-patient! db patient-id patient)
+            [::response/no-content])))))
 
 (defmethod ig/init-key ::delete-patient [_ {:keys [db]}]
   (fn [{[_ patient-id] :ataraxy/result}]
-    (if-not (db.patients/find-patient-by-id db patient-id)
-      [::response/not-found {:message "Not Found"}]
-      (do (db.patients/delete-patient! db patient-id)
-          [::response/no-content]))))
+    (if-not (db.patients/validate-params :delete-patient [patient-id])
+      [::response/bad-request]
+      (if-not (db.patients/find-patient-by-id db patient-id)
+        [::response/not-found {:message "Not Found"}]
+        (do (db.patients/delete-patient! db patient-id)
+            [::response/no-content])))))
