@@ -12,7 +12,8 @@
                  [clojure.java-time "0.3.3"]
                  [org.postgresql/postgresql "42.2.19"]
                  [com.github.seancorfield/honeysql "2.2.891"]
-                 [seancorfield/next.jdbc "1.2.659"]]
+                 [seancorfield/next.jdbc "1.2.659"]
+                 [com.gearswithingears/shrubbery "0.4.1"]]
   :plugins [[duct/lein-duct "0.12.3"]]
   :main ^:skip-aot hs-test-api.main
   :resource-paths ["resources" "target/resources"]

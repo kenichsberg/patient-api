@@ -19,7 +19,7 @@
                     custom-readers))
 
 (defn test []
-  (eftest/run-tests (eftest/find-tests "test")))
+  (eftest/run-tests (eftest/find-tests "test") {:multithread? :namespaces}))
 
 (def profiles
   [:duct.profile/dev :duct.profile/local])
