@@ -213,7 +213,8 @@
                                 :last_name
                                 :health_insurance_number]]
                               (str "%" %2 "%")])
-                   [:or])))))
+                   ;[:or])))))
+                   [:and])))))
 
 (defn compare-date [field-kw operator value]
   [(case operator
